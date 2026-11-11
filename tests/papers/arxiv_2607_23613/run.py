@@ -4,7 +4,6 @@ import argparse
 import hashlib
 import json
 import platform
-import subprocess
 import time
 import unittest
 from datetime import datetime
@@ -15,6 +14,8 @@ import numpy as np
 import sympy as sp
 
 import CayleyKernel as CK
+
+from tests.papers.provenance import KERNEL_ROOT, source_provenance
 
 from . import test_sections
 
@@ -55,7 +56,7 @@ def main():
         unittest.defaultTestLoader.loadTestsFromModule(test_sections))
     repo = Path(__file__).resolve().parents[3]
     sources = list(Path(__file__).parent.glob('*.py')) + [
-        repo/'CayleyKernel/__init__.py', repo/'CayleyKernel/_cpu.py',
+        KERNEL_ROOT/'CayleyKernel/__init__.py', KERNEL_ROOT/'CayleyKernel/_cpu.py',
         repo/'tests/papers/desktop_batch/common.py', repo/'tests/papers/type_replay.py',
         repo/'tests/papers/arxiv_2608_28176/algebra.py']
     sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
@@ -65,9 +66,8 @@ def main():
             'elapsed_seconds': time.monotonic()-started,
             'python': platform.python_version(), 'numpy': np.__version__, 'sympy': sp.__version__,
             'cpu_backend': CK.cpu_backend(), 'kernel_loaded': CK.loaded(),
-            'git_head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip(),
             'paper_sha256': sha(args.paper) if args.paper else None,
-            'source_sha256': {str(p.relative_to(repo)): sha(p) for p in sources},
+            **source_provenance(sources),
             'tests_run': result.testsRun, 'passed': result.testsRun-len(result.skipped)-len(result.errors)-len(result.failures),
             'skipped': len(result.skipped), 'failures': len(result.failures), 'errors': len(result.errors),
             'tests': result.records, 'experiments': test_sections.EVIDENCE,

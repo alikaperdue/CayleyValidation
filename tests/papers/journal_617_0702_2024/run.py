@@ -9,7 +9,6 @@ import hashlib
 import io
 import json
 import platform
-import subprocess
 import sys
 import time
 import unittest
@@ -18,6 +17,8 @@ from fractions import Fraction
 from pathlib import Path
 
 import CayleyKernel as CK
+
+from tests.papers.provenance import KERNEL_ROOT, source_provenance
 
 from . import test_sections
 from .figures import line_chart
@@ -45,6 +46,8 @@ def main():
     parser.add_argument('--output',type=Path,help='Write report, exact data and table renderings here')
     parser.add_argument('--cuda',action='store_true',help='User opt-in: actually execute multiply() tests on a CUDA machine')
     args=parser.parse_args()
+    if args.output and args.output.exists():
+        parser.error("output directory exists; choose a fresh path")
     test_sections.OBSERVATIONS.clear();test_sections.CERTIFICATES.clear()
     loader=unittest.defaultTestLoader
     suite=unittest.TestSuite([loader.loadTestsFromTestCase(test_sections.PaperVerification)])
@@ -53,13 +56,12 @@ def main():
     stream=io.StringIO();start=time.perf_counter()
     result=unittest.TextTestRunner(stream=stream,verbosity=2,resultclass=RecordedResult).run(suite)
     root=Path(__file__).resolve().parents[3]
-    files=sorted(Path(__file__).parent.glob('*.py'))+[root/'CayleyKernel/__init__.py']
+    files=sorted(Path(__file__).parent.glob('*.py'))+[KERNEL_ROOT/'CayleyKernel/__init__.py']
     metadata={
         'paper':'617-0702/2024','title':'Graphical and Computational Analysis of Cayley-Dickson Algebra Elements over Z_p',
         'paper_sha256':hashlib.sha256(args.paper.read_bytes()).hexdigest() if args.paper else None,
         'recorded_at_utc':datetime.now(timezone.utc).isoformat(),'python':sys.version,'numpy':test_sections.np.__version__,'platform':platform.platform(),
-        'git_head':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
-        'source_sha256':{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in files},
+        **source_provenance(files),
         'kernel_loaded':CK.loaded(),'kernel_abi':CK.abi_version(),'cuda_requested':args.cuda,
         'gpu_tests_not_selected':0 if args.cuda else 4,
         'cuda_device_probe_performed':args.cuda and CK.cp is not None and CK.loaded(),
@@ -71,7 +73,7 @@ def main():
         'scope':'Exact modular arithmetic; complete small finite-field enumerations and independent quadratic-form convolutions. Composition-algebra unit/ZD classifications are not extended to sedenions. Printed formulas and corrected counts are kept separate.'}
     sys.stdout.write(stream.getvalue())
     if args.output:
-        args.output.mkdir(parents=True,exist_ok=True)
+        args.output.mkdir(parents=True)
         (args.output/'results.json').write_text(json.dumps(metadata,indent=2,default=exact_json)+'\n')
         (args.output/'test-output.txt').write_text(stream.getvalue())
         if result.wasSuccessful():

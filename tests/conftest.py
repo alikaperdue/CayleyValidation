@@ -1,22 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Shared pytest fixtures for the CayleyValidation external suite.
+"""Shared pytest fixtures for the external paper suites."""
 
-This conftest intentionally mirrors the fixtures the paper suites
-import from `CayleyKernel`'s own `tests/conftest.py`.  Because
-`CayleyValidation` is an *external* test laboratory, it cannot depend
-on the kernel's private `tests` package — the engine exposes the
-required entry points (`ck.cp`, `ck.loaded()`) and the GPU guards
-(`tests.support.gpu_support`, mirrored under this project) provide the
-rest.
-"""
-
-import math
-from pathlib import Path
-
+import CayleyKernel
 import numpy as np
 import pytest
 
-import CayleyKernel
 from tests.support.gpu_support import GPUUnavailable, check_compiled_kernel, device_count
 
 
@@ -26,10 +14,6 @@ def pytest_addoption(parser):
         action="store_true",
         help="Fail selected GPU tests if their device or compiled kernel is unavailable.",
     )
-
-
-def pytest_collection_modifyitems(config, items):
-    pass
 
 
 def _gpu_unavailable(config, reason):

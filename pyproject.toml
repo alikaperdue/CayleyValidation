@@ -10,6 +10,7 @@ description = "External test and validation suite for the CayleyKernel high-perf
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [
     { name = "CayleyKernel Team" },
 ]
@@ -32,30 +33,9 @@ classifiers = [
     "Topic :: Software Development :: Testing",
 ]
 
-# Runtime prerequisites.
-#
-# The core engine, CayleyKernel, is consumed from the sibling checkout:
-#
-#     workspace/
-#       CayleyKernel/         # engine repo (setup.py, pyproject.toml,
-#                             # CayleyKernel/, tests/, cuda/, rust/)
-#       CayleyValidation/     # this project (this pyproject.toml)
-#
-# The `file://` direct-URL reference below is the prerequisite dependency.
-# A direct URL gives pip an explicit, resolvable installable source (the
-# engine ships no public PyPI coordinate) and makes this suite unbuildable
-# unless the engine source tree is present.  To install the kernel in
-# *editable* mode — so source edits to the engine are picked up by this
-# suite without a reinstall — run, from this project root:
-#
-#     pip install -e ../CayleyKernel
-#     pip install -e .[dev]
-#
-# The relative path is resolved against this pyproject.toml's location.
-dependencies = [
-    "cayley-kernel @ file://../CayleyKernel",
-    "numpy>=1.24",
-]
+# Install CayleyKernel separately from a source checkout. Some companions
+# need its repository-local scripts, which are unavailable in the wheel.
+dependencies = ["numpy>=1.24"]
 
 [project.optional-dependencies]
 # Mirrors the engine's `test` + `research-test` extras so the migrated
@@ -97,10 +77,7 @@ addopts = "--strict-markers -m 'not slow'"
 markers = [
     "cpu: host-only checks that need no GPU (some use optional host dependencies or a compiled library)",
     "gpu_device: requires a CuPy device but can run without the compiled CayleyKernel library",
-    "sparse_zd: CPU-only sparse zero-divisor validation (opt-in: --run-sparse-zd)",
     "slow: expensive products and reproductions (opt-in: pytest -m slow)",
-    "benchmark: GPU timing workloads (opt-in: --run-benchmarks)",
-    "benchmark_baseline: GPU workloads that record or compare a local baseline",
 ]
 filterwarnings = [
     "error::pytest.PytestUnknownMarkWarning",

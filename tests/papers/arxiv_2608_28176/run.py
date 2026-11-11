@@ -11,6 +11,8 @@ from pathlib import Path
 
 import CayleyKernel as CK
 
+from tests.papers.provenance import KERNEL_ROOT, source_provenance
+
 from . import test_sections
 
 
@@ -29,6 +31,8 @@ def main():
     parser.add_argument('--output',type=Path,help='Directory for results.json and test-output.txt')
     parser.add_argument('--paper',type=Path,help='Local PDF to hash for provenance (not modified)')
     args=parser.parse_args()
+    if args.output and args.output.exists():
+        parser.error('output directory exists; choose a fresh path')
     paper_hash=hashlib.sha256(args.paper.read_bytes()).hexdigest() if args.paper else None
     stream=io.StringIO()
     suite=unittest.defaultTestLoader.loadTestsFromModule(test_sections)
@@ -52,11 +56,11 @@ def main():
         'failures':[{'test':t.id(),'traceback':trace} for t,trace in result.failures],
         'errors':[{'test':t.id(),'traceback':trace} for t,trace in result.errors],
         'successful':result.wasSuccessful(),
-        'source_sha256':{
-            p.name:hashlib.sha256(p.read_bytes()).hexdigest()
-            for p in sorted(list(Path(__file__).parent.glob('*.py')) +
-                            [Path(__file__).resolve().parents[1]/'type_replay.py'])
-        },
+        **source_provenance(
+            list(Path(__file__).parent.glob('*.py'))
+            + [Path(__file__).resolve().parents[1] / 'type_replay.py',
+               KERNEL_ROOT / 'CayleyKernel/__init__.py']
+        ),
         'scope':'Finite checks; mixed signatures use independent real references and complex coordinate-embedding GPU replays.',
         'paper_discrepancies':[
             'Corollary 3.7: split example satisfies hypotheses but has four distinct lines, not six.',
@@ -64,7 +68,7 @@ def main():
         ],
     }
     if args.output:
-        args.output.mkdir(parents=True,exist_ok=True)
+        args.output.mkdir(parents=True)
         (args.output/'test-output.txt').write_text(output)
         (args.output/'results.json').write_text(json.dumps(metadata,indent=2)+'\n')
     return 0 if result.wasSuccessful() else 1

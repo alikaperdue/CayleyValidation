@@ -9,7 +9,6 @@ import hashlib
 import io
 import json
 import platform
-import subprocess
 import sys
 import time
 import unittest
@@ -18,6 +17,8 @@ from fractions import Fraction
 from pathlib import Path
 
 import CayleyKernel as CK
+
+from tests.papers.provenance import KERNEL_ROOT, source_provenance
 
 from . import test_sections
 from .emanation import labels, table
@@ -72,6 +73,8 @@ def main():
     parser.add_argument('--output',type=Path,help='Write report, exact data and table renderings here')
     parser.add_argument('--cuda',action='store_true',help='User opt-in: actually execute multiply() tests on a CUDA machine')
     args=parser.parse_args()
+    if args.output and args.output.exists():
+        parser.error("output directory exists; choose a fresh path")
     test_sections.OBSERVATIONS.clear();test_sections.CERTIFICATES.clear()
     loader=unittest.defaultTestLoader
     suite=unittest.TestSuite([loader.loadTestsFromTestCase(test_sections.PaperVerification)])
@@ -80,13 +83,12 @@ def main():
     stream=io.StringIO();start=time.perf_counter()
     result=unittest.TextTestRunner(stream=stream,verbosity=2,resultclass=RecordedResult).run(suite)
     root=Path(__file__).resolve().parents[3]
-    files=sorted(Path(__file__).parent.glob('*.py'))+[root/'CayleyKernel/__init__.py', root/'tests/papers/type_replay.py']
+    files=sorted(Path(__file__).parent.glob('*.py'))+[KERNEL_ROOT/'CayleyKernel/__init__.py', root/'tests/papers/type_replay.py']
     metadata={
         'paper':'0704.0112v3','title':'Placeholder Substructures III: A Bit-String-Driven Recipe Theory for Infinite-Dimensional Zero-Divisor Spaces',
         'paper_sha256':hashlib.sha256(args.paper.read_bytes()).hexdigest() if args.paper else None,
         'recorded_at_utc':datetime.now(timezone.utc).isoformat(),'python':sys.version,'platform':platform.platform(),
-        'git_head':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
-        'source_sha256':{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in files},
+        **source_provenance(files),
         'kernel_loaded':CK.loaded(),'kernel_abi':CK.abi_version(),'cuda_requested':args.cuda,
         'gpu_tests_not_selected':0 if args.cuda else 3,
         'cuda_device_probe_performed':args.cuda and CK.cp is not None and CK.loaded(),
@@ -98,7 +100,7 @@ def main():
         'scope':'Finite exact basis/ET/recipe tests; complete cells through N8, with selected samples up to N203. Neither infinite Skies, Class4 complexity, scale-free laws nor applications are proved. Printed preparation and proposed correction are separate.'}
     sys.stdout.write(stream.getvalue())
     if args.output:
-        args.output.mkdir(parents=True,exist_ok=True)
+        args.output.mkdir(parents=True)
         (args.output/'results.json').write_text(json.dumps(metadata,indent=2,default=exact_json)+'\n')
         (args.output/'test-output.txt').write_text(stream.getvalue())
         if result.wasSuccessful():

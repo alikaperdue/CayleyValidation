@@ -1,0 +1,4 @@
+# Preserve historical evidence bytes and recorded hashes across checkouts.
+docs/papers/** -text
+# Python's CSV writer emits CRLF, which is valid CSV rather than trailing whitespace.
+docs/papers/**/results/*.csv -text whitespace=cr-at-eol

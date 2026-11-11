@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+.coverage
+/validation-output/
+*.pdf
+/docs/papers/**/extracted.txt
+/docs/papers/**/page-*.txt
+/docs/papers/**/page-*.png

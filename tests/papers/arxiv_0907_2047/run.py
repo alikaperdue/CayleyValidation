@@ -4,7 +4,6 @@ import hashlib
 import io
 import json
 import platform
-import subprocess
 import sys
 import time
 import unittest
@@ -15,6 +14,8 @@ from pathlib import Path
 import numpy as np
 
 import CayleyKernel as CK
+
+from tests.papers.provenance import KERNEL_ROOT, source_provenance
 
 from . import test_sections
 from .loops import classification, indices, labels, lattice_data
@@ -43,6 +44,8 @@ def main():
     parser.add_argument('--paper', type=Path, help='PDF to hash; never modified')
     parser.add_argument('--output', type=Path, help='Write JSON and complete test log here')
     args = parser.parse_args()
+    if args.output and args.output.exists():
+        parser.error("output directory exists; choose a fresh path")
     test_sections.OBSERVATIONS.clear()
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite([
@@ -53,14 +56,13 @@ def main():
     start = time.perf_counter()
     result = unittest.TextTestRunner(stream=stream, verbosity=2, resultclass=RecordedResult).run(suite)
     root = Path(__file__).resolve().parents[3]
-    files = list(Path(__file__).parent.glob('*.py')) + [root/'CayleyKernel/__init__.py', root/'tests/papers/type_replay.py']
+    files = list(Path(__file__).parent.glob('*.py')) + [KERNEL_ROOT/'CayleyKernel/__init__.py', root/'tests/papers/type_replay.py']
     report = {
         'paper': '0907.2047v3',
         'paper_sha256': hashlib.sha256(args.paper.read_bytes()).hexdigest() if args.paper else None,
         'recorded_at_utc': datetime.now(timezone.utc).isoformat(),
         'python': sys.version, 'numpy': np.__version__, 'platform': platform.platform(),
-        'git_head': subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
-        'source_sha256': {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(files)},
+        **source_provenance(files),
         'kernel_loaded': CK.loaded(), 'kernel_abi': CK.abi_version(),
         'cupy_importable': CK.cp is not None,
         'elapsed_seconds': time.perf_counter()-start,
@@ -76,7 +78,7 @@ def main():
     }
     sys.stdout.write(stream.getvalue())
     if args.output:
-        args.output.mkdir(parents=True,exist_ok=True)
+        args.output.mkdir(parents=True)
         (args.output/'results.json').write_text(json.dumps(report,indent=2,default=json_exact)+'\n')
         (args.output/'test-output.txt').write_text(stream.getvalue())
         if result.wasSuccessful():

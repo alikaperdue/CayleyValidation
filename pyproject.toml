@@ -1,0 +1,130 @@
+# SPDX-License-Identifier: Apache-2.0
+[build-system]
+requires = ["setuptools>=77.0.3", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cayley-validation"
+version = "0.1.0"
+description = "External test and validation suite for the CayleyKernel high-performance math engine"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [
+    { name = "CayleyKernel Team" },
+]
+keywords = [
+    "cayley-dickson",
+    "validation",
+    "testing",
+    "regression",
+    "hypercomplex",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Testing",
+]
+
+# Runtime prerequisites.
+#
+# The core engine, CayleyKernel, is consumed from the sibling checkout:
+#
+#     workspace/
+#       CayleyKernel/         # engine repo (setup.py, pyproject.toml,
+#                             # CayleyKernel/, tests/, cuda/, rust/)
+#       CayleyValidation/     # this project (this pyproject.toml)
+#
+# The `file://` direct-URL reference below is the prerequisite dependency.
+# A direct URL gives pip an explicit, resolvable installable source (the
+# engine ships no public PyPI coordinate) and makes this suite unbuildable
+# unless the engine source tree is present.  To install the kernel in
+# *editable* mode — so source edits to the engine are picked up by this
+# suite without a reinstall — run, from this project root:
+#
+#     pip install -e ../CayleyKernel
+#     pip install -e .[dev]
+#
+# The relative path is resolved against this pyproject.toml's location.
+dependencies = [
+    "cayley-kernel @ file://../CayleyKernel",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+# Mirrors the engine's `test` + `research-test` extras so the migrated
+# literature suites can pull in the same optional scientific stack.
+test = [
+    "pytest>=8.0",
+]
+research-test = [
+    "scipy>=1.14",
+    "sympy>=1.12",
+    "matplotlib",
+    "tzdata",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.0",
+    "pytest-xdist>=3.0",
+    "ruff>=0.9,<1.0",
+]
+
+# ------------------------------------------------------------------
+# Tool configuration
+# ------------------------------------------------------------------
+
+[tool.setuptools]
+# This is a test laboratory, not a shipped package.  The `tests` tree is
+# the only Python source; we do not publish a `cayley_validation` module.
+# Keeping setuptools' auto-discovery quiet avoids a bogus install.
+py-modules = []
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+# Marker vocabulary matches the engine's pyproject so the migrated paper
+# suites (which use `cpu`, `gpu_device`, `slow`, `benchmark`, ...) collect
+# unchanged.  The default selection excludes `slow` cases, matching the
+# engine's CI selection.
+addopts = "--strict-markers -m 'not slow'"
+markers = [
+    "cpu: host-only checks that need no GPU (some use optional host dependencies or a compiled library)",
+    "gpu_device: requires a CuPy device but can run without the compiled CayleyKernel library",
+    "sparse_zd: CPU-only sparse zero-divisor validation (opt-in: --run-sparse-zd)",
+    "slow: expensive products and reproductions (opt-in: pytest -m slow)",
+    "benchmark: GPU timing workloads (opt-in: --run-benchmarks)",
+    "benchmark_baseline: GPU workloads that record or compare a local baseline",
+]
+filterwarnings = [
+    "error::pytest.PytestUnknownMarkWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402", "E702", "E731"]
+
+[tool.ruff.format]
+quote-style = "double"
+line-ending = "lf"
+
+[tool.coverage.run]
+source = ["tests"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
